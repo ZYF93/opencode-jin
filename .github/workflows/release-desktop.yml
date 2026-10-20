@@ -179,6 +179,7 @@ jobs:
 
       - name: Publish GitHub release
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
           TAG: ${{ needs.prepare.outputs.tag }}
