@@ -108,6 +108,16 @@ bun run --cwd packages/desktop build
 构建产物在 `packages/desktop/out`。Jin 不内置模型凭据；照常连接你的
 Provider 即可。
 
+### 打包桌面端 Release
+
+`.github/workflows/release-desktop.yml` 会构建 macOS（Apple Silicon 和 Intel）、
+Windows x64、Linux x64 的未签名安装包。推送 `v2.0.32-jin.1` 这样的 tag，或在
+Actions 里手动运行并填写相同版本号，工作流会创建 GitHub Release 并附带校验和。
+
+工作流设置 `OPENCODE_SKIP_SIGNING=true` 和 `OPENCODE_DESKTOP_UPDATER=disabled`，
+因此这些社区构建不需要 Apple/Windows 签名凭据，也不会被上游 OpenCode 的自动更新
+覆盖。本地 Linux 打包命令见 `packages/desktop/README.md`。
+
 ## 审批契约
 
 Jin 把**提案权**和**决策权**分开：

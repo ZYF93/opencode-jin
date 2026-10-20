@@ -1,0 +1,212 @@
+name: release-desktop
+
+run-name: "Jin desktop ${{ inputs.version || github.ref_name }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 2.0.32-jin.1"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark the GitHub release as a pre-release"
+        required: false
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*-jin*"
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+    steps:
+      - id: meta
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            version="$INPUT_VERSION"
+            tag="v$version"
+          else
+            tag="$REF_NAME"
+            version="${tag#v}"
+          fi
+
+          if ! [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+
+          if [ "$tag" != "v$version" ]; then
+            echo "Release tag $tag does not match version $version" >&2
+            exit 1
+          fi
+
+          prerelease=false
+          if [[ "$version" == *-* || "$INPUT_PRERELEASE" = "true" ]]; then
+            prerelease=true
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+  desktop:
+    name: ${{ matrix.id }}
+    needs: prepare
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: mac-arm64
+            host: macos-26
+            cli_target: opencode-darwin-arm64
+            opencode_target: aarch64-apple-darwin
+            platform_flag: --mac --arm64
+            bun_install_flags: --os=darwin --cpu=arm64
+          - id: mac-x64
+            host: macos-26-intel
+            cli_target: opencode-darwin-x64-baseline
+            opencode_target: x86_64-apple-darwin
+            platform_flag: --mac --x64
+            bun_install_flags: --os=darwin --cpu=x64
+          - id: windows-x64
+            host: windows-2025
+            cli_target: opencode-windows-x64-baseline
+            opencode_target: x86_64-pc-windows-msvc
+            platform_flag: --win
+            bun_install_flags: ""
+          - id: linux-x64
+            host: ubuntu-22.04
+            cli_target: opencode-linux-x64-baseline
+            opencode_target: x86_64-unknown-linux-gnu
+            platform_flag: --linux
+            bun_install_flags: ""
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      OPENCODE_DESKTOP_UPDATER: disabled
+      OPENCODE_SKIP_SIGNING: "true"
+      OPENCODE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: ./.github/actions/setup-bun
+        with:
+          install-flags: ${{ matrix.bun_install_flags }}
+
+      - name: Install RPM tooling
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm
+
+      - name: Build CLI
+        env:
+          OPENCODE_CHANNEL: latest
+          OPENCODE_RELEASE: "1"
+        run: bun packages/cli/script/build.ts --target=${{ matrix.cli_target }}
+
+      - name: Prepare desktop
+        working-directory: packages/desktop
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_CLI_TARGET: ${{ matrix.opencode_target }}
+          OPENCODE_CLI_DIST: ${{ github.workspace }}/packages/cli/dist
+        run: bun ./scripts/prepare.ts
+
+      - name: Build desktop
+        working-directory: packages/desktop
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          OPENCODE_CHANNEL: prod
+          OPENCODE_CLI_TARGET: ${{ matrix.opencode_target }}
+          OPENCODE_CLI_DIST: ${{ github.workspace }}/packages/cli/dist
+        run: bun run build
+
+      - name: Package desktop
+        working-directory: packages/desktop
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_CLI_TARGET: ${{ matrix.opencode_target }}
+        run: npx electron-builder ${{ matrix.platform_flag }} --publish never --config electron-builder.config.ts
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jin-desktop-${{ matrix.id }}
+          path: |
+            packages/desktop/dist/*.dmg
+            packages/desktop/dist/*.zip
+            packages/desktop/dist/*.exe
+            packages/desktop/dist/*.AppImage
+            packages/desktop/dist/*.deb
+            packages/desktop/dist/*.rpm
+          if-no-files-found: error
+
+  release:
+    needs:
+      - prepare
+      - desktop
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: jin-desktop-*
+          merge-multiple: true
+          path: dist
+
+      - name: Write checksums
+        working-directory: dist
+        run: |
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS.txt
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          notes="$RUNNER_TEMP/release-notes.md"
+          cat > "$notes" <<EOF
+          ## Jin Desktop ${VERSION}
+
+          Jin adds architecture-driven development and one-click proposal approval to the OpenCode desktop app.
+
+          ### Downloads
+
+          - macOS Apple Silicon and Intel: \`.dmg\` or \`.zip\`
+          - Windows x64: \`.exe\` installer
+          - Linux x64: \`.AppImage\`, \`.deb\`, or \`.rpm\`
+
+          These builds are unsigned. macOS may require **Open Anyway** in System Settings, and Windows may show a SmartScreen warning. Verify the downloaded file against \`SHA256SUMS.txt\`.
+
+          Auto-update is disabled in this release so a Jin build cannot replace itself with upstream OpenCode.
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            args=(release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Jin Desktop $TAG" --notes-file "$notes")
+            if [ "$PRERELEASE" = "true" ]; then
+              args+=(--prerelease)
+            fi
+            gh "${args[@]}"
+          fi

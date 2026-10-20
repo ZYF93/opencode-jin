@@ -9,7 +9,10 @@ import { make } from "./machine"
 const setup: MainSetup<typeof definition> = async (ctx) => {
   const build = ctx.build
   const lifecycle = ctx.lifecycle
-  const enabled = build.packaged && build.channel !== "dev"
+
+  const enabled =
+    build.packaged && build.channel !== "dev" && import.meta.env.OPENCODE_DESKTOP_UPDATER !== "disabled"
+
   // Holds no resources, so it needs no cleanup.
   const context = logContext(ctx.log.write)
   const runPromise = Effect.runPromiseWith(context)

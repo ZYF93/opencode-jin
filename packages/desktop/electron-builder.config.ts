@@ -27,10 +27,20 @@ const legacyDesktopEntryFpm = `${legacyDesktopEntry}=/usr/share/applications/ope
 const metainfoFpm = (appId: string) =>
   `${path.join(packageDir, "resources", `${appId}.metainfo.xml`)}=/usr/share/metainfo/${appId}.metainfo.xml`
 
+function skipSigning() {
+  return process.env.OPENCODE_SKIP_SIGNING === "true"
+}
+
+function updaterDisabled() {
+  return process.env.OPENCODE_DESKTOP_UPDATER === "disabled"
+}
+
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
 
   if (process.env.GITHUB_ACTIONS !== "true") return
+
+  if (skipSigning()) return
 
   await execFileAsync(
     "pwsh",
@@ -165,15 +175,17 @@ const getBase = (appId: string): Configuration => {
       extendInfo: {
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
       },
-      hardenedRuntime: true,
+      hardenedRuntime: !skipSigning(),
       gatekeeperAssess: false,
       entitlements: "resources/entitlements.plist",
       entitlementsInherit: "resources/entitlements.plist",
-      sign: async (options) => {
-        const { sign } = await import("app-builder-lib/out/codeSign/macCodeSign")
-        await sign(macSignOptions(options))
-      },
-      notarize: true,
+      sign: skipSigning()
+        ? undefined
+        : async (options) => {
+            const { sign } = await import("app-builder-lib/out/codeSign/macCodeSign")
+            await sign(macSignOptions(options))
+          },
+      notarize: !skipSigning(),
       target: ["dmg", "zip"],
     },
     protocols: {
@@ -182,9 +194,11 @@ const getBase = (appId: string): Configuration => {
     },
     win: {
       icon: `resources/icons/icon.ico`,
-      signtoolOptions: {
-        sign: signWindows,
-      },
+      signtoolOptions: skipSigning()
+        ? undefined
+        : {
+            sign: signWindows,
+          },
       target: ["nsis"],
       verifyUpdateCodeSignature: false,
     },
@@ -228,34 +242,46 @@ export function getConfig() {
     }
 
     case "beta": {
-      return {
+      const config: Configuration = {
         ...base,
         appId,
         productName: "OpenCode Beta",
         protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
+        deb: { fpm: [metainfoFpm(appId)] },
+        rpm: { packageName: "opencode-beta", fpm: [metainfoFpm(appId)] },
+      }
+
+      if (updaterDisabled()) return config
+
+      return {
+        ...config,
         publish: {
           provider: "generic",
           url: "https://opencode.ai/update/api/beta/desktop/opencode/",
           channel: "latest",
         },
-        deb: { fpm: [metainfoFpm(appId)] },
-        rpm: { packageName: "opencode-beta", fpm: [metainfoFpm(appId)] },
       }
     }
 
     case "prod": {
-      return {
+      const config: Configuration = {
         ...base,
         appId,
         productName: "OpenCode",
         protocols: { name: "OpenCode", schemes: ["opencode"] },
+        deb: { fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
+        rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
+      }
+
+      if (updaterDisabled()) return config
+
+      return {
+        ...config,
         publish: {
           provider: "generic",
           url: "https://opencode.ai/update/api/latest/desktop/opencode/",
           channel: "latest",
         },
-        deb: { fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
-        rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
       }
     }
   }

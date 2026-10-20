@@ -40,6 +40,37 @@ CLI preparation uses these channel rules:
 default. `bun dev --download-server <version>` instead downloads that CLI version for local development. Neither path
 requires `OPENCODE_CLI_DIST` or runs the production prebuild.
 
+## Unsigned release builds
+
+The Jin fork publishes unsigned desktop builds from `.github/workflows/release-desktop.yml`. For a local Linux build:
+
+```bash
+OPENCODE_VERSION=2.0.32-jin.1 OPENCODE_CHANNEL=latest OPENCODE_RELEASE=1 \
+  bun packages/cli/script/build.ts --target=opencode-linux-x64-baseline
+
+cd packages/desktop
+
+OPENCODE_VERSION=2.0.32-jin.1 OPENCODE_CHANNEL=prod \
+OPENCODE_CLI_TARGET=x86_64-unknown-linux-gnu \
+OPENCODE_CLI_DIST="$PWD/../cli/dist" \
+OPENCODE_SKIP_SIGNING=true OPENCODE_DESKTOP_UPDATER=disabled \
+  bun ./scripts/prepare.ts
+
+OPENCODE_VERSION=2.0.32-jin.1 OPENCODE_CHANNEL=prod \
+OPENCODE_CLI_TARGET=x86_64-unknown-linux-gnu \
+OPENCODE_SKIP_SIGNING=true OPENCODE_DESKTOP_UPDATER=disabled \
+  bun run build
+
+OPENCODE_CHANNEL=prod OPENCODE_CLI_TARGET=x86_64-unknown-linux-gnu \
+OPENCODE_SKIP_SIGNING=true OPENCODE_DESKTOP_UPDATER=disabled \
+  bunx electron-builder --linux AppImage deb \
+  --publish never --config electron-builder.config.ts
+```
+
+`OPENCODE_SKIP_SIGNING=true` skips macOS/Windows signing and notarization, and
+`OPENCODE_DESKTOP_UPDATER=disabled` removes the upstream update feed so a Jin build cannot replace itself
+with an upstream OpenCode release. Do not use either flag for an official signed public release.
+
 ## Beta channel
 
 Every push to the `beta` branch publishes OpenCode Beta (`ai.opencode.desktop.beta`) as version `0.0.0-beta-<run>` to

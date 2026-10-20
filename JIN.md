@@ -118,6 +118,19 @@ bun run --cwd packages/desktop build
 The built renderer lives in `packages/desktop/out`. Jin does not bundle model
 credentials; connect a provider in OpenCode as usual.
 
+### Package desktop releases
+
+`.github/workflows/release-desktop.yml` builds unsigned installers for macOS
+(Apple Silicon and Intel), Windows x64, and Linux x64. Push a tag such as
+`v2.0.32-jin.1`, or run the workflow manually with the same version, and it
+creates a GitHub release with a checksum file.
+
+The workflow sets `OPENCODE_SKIP_SIGNING=true` and
+`OPENCODE_DESKTOP_UPDATER=disabled` so these community builds do not require
+Apple/Windows signing credentials and cannot replace themselves with an upstream
+OpenCode update. See `packages/desktop/README.md` for the equivalent local Linux
+commands.
+
 ## The approval contract
 
 Jin separates **proposal authority** from **decision authority**:

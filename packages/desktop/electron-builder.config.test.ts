@@ -70,6 +70,26 @@ test("legacy Linux launcher stays hidden", async () => {
   expect(desktop).toContain("NoDisplay=true")
 })
 
+test("unsigned release disables signing and update metadata", () => {
+  const previousSigning = process.env.OPENCODE_SKIP_SIGNING
+  const previousUpdater = process.env.OPENCODE_DESKTOP_UPDATER
+  process.env.OPENCODE_SKIP_SIGNING = "true"
+  process.env.OPENCODE_DESKTOP_UPDATER = "disabled"
+
+  try {
+    const config = load("prod")
+    expect(config.mac?.sign).toBeUndefined()
+    expect(config.mac?.notarize).toBe(false)
+    expect(config.publish).toBeUndefined()
+  } finally {
+    if (previousSigning === undefined) delete process.env.OPENCODE_SKIP_SIGNING
+    else process.env.OPENCODE_SKIP_SIGNING = previousSigning
+
+    if (previousUpdater === undefined) delete process.env.OPENCODE_DESKTOP_UPDATER
+    else process.env.OPENCODE_DESKTOP_UPDATER = previousUpdater
+  }
+})
+
 test("shared packaging defaults", async () => {
   const config = load("dev")
   expect(config.mac?.sign).toBeFunction()
