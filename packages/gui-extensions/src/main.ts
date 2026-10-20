@@ -5,6 +5,7 @@ import debug from "./debug"
 import terminal from "./terminal"
 import file from "./file"
 import review from "./review"
+import jin from "./jin"
 import details from "./details"
 import browser from "./browser"
 import pairing from "./pairing"
@@ -24,6 +25,7 @@ export const builtins = Extension.compose(
   terminal,
   file,
   review,
+  jin,
   details,
   { ...browser, main: () => import("./browser/main") },
   { ...pairing, main: () => import("./pairing/main") },

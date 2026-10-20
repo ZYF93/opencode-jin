@@ -11,6 +11,8 @@ import file from "./file"
 import fileRenderer from "./file/renderer"
 import review from "./review"
 import reviewRenderer from "./review/renderer"
+import jin from "./jin"
+import jinRenderer from "./jin/renderer"
 import details from "./details"
 import detailsRenderer from "./details/renderer"
 import browser from "./browser"
@@ -42,6 +44,7 @@ export const builtins = Extension.compose(
   { ...terminal, renderer: eager(terminalRenderer) },
   { ...file, renderer: eager(fileRenderer) },
   { ...review, renderer: eager(reviewRenderer) },
+  { ...jin, renderer: eager(jinRenderer) },
   { ...details, renderer: eager(detailsRenderer) },
   { ...browser, renderer: eager(browserRenderer) },
   { ...pairing, renderer: eager(pairingRenderer) },

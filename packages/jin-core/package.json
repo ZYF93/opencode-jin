@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@jin/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./bootstrap": "./src/bootstrap.ts",
+    "./diff": "./src/diff.ts",
+    "./drift": "./src/drift.ts",
+    "./model": "./src/model.ts",
+    "./project": "./src/project.ts",
+    "./proposal": "./src/proposal.ts",
+    "./scan": "./src/scan/index.ts",
+    "./types": "./src/types.ts",
+    "./validate": "./src/validate.ts",
+    "./yaml": "./src/yaml.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  }
+}

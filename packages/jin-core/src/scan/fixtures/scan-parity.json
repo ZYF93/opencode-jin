@@ -1,0 +1,218 @@
+{
+  "arch": {
+    "l0": {
+      "version": 1,
+      "project": {
+        "name": "demo",
+        "description": "",
+        "languages": [
+          "python",
+          "typescript"
+        ]
+      },
+      "packages": [
+        {
+          "id": "pkg-web",
+          "name": "web",
+          "path": "apps/web"
+        },
+        {
+          "id": "pkg-lib",
+          "name": "lib",
+          "path": "packages/lib"
+        },
+        {
+          "id": "pkg-api",
+          "name": "api",
+          "path": "services/api"
+        }
+      ],
+      "modules": [
+        {
+          "id": "mod-api",
+          "name": "api",
+          "package": "pkg-web",
+          "path": "apps/web/src/api",
+          "depends_on": [
+            "mod-components"
+          ],
+          "public_entities": [
+            "fn-fetch-data"
+          ]
+        },
+        {
+          "id": "mod-components",
+          "name": "components",
+          "package": "pkg-web",
+          "path": "apps/web/src/components",
+          "public_entities": [
+            "cmp-button"
+          ]
+        },
+        {
+          "id": "mod-src",
+          "name": "src",
+          "package": "pkg-lib",
+          "path": "packages/lib/src",
+          "public_entities": [
+            "fn-helper"
+          ]
+        },
+        {
+          "id": "mod-app",
+          "name": "app",
+          "package": "pkg-api",
+          "path": "services/api/app",
+          "public_entities": [
+            "cls-task",
+            "cls-task-service"
+          ]
+        }
+      ]
+    },
+    "l1": {
+      "mod-api": {
+        "version": 1,
+        "module": "mod-api",
+        "entities": [
+          {
+            "id": "fn-fetch-data",
+            "kind": "function",
+            "name": "fetchData",
+            "location": {
+              "file": "apps/web/src/api/client.ts",
+              "symbol": "fetchData"
+            }
+          }
+        ]
+      },
+      "mod-components": {
+        "version": 1,
+        "module": "mod-components",
+        "entities": [
+          {
+            "id": "cmp-button",
+            "kind": "component",
+            "name": "Button",
+            "location": {
+              "file": "apps/web/src/components/Button.tsx",
+              "symbol": "Button"
+            }
+          }
+        ]
+      },
+      "mod-src": {
+        "version": 1,
+        "module": "mod-src",
+        "entities": [
+          {
+            "id": "fn-helper",
+            "kind": "function",
+            "name": "helper",
+            "location": {
+              "file": "packages/lib/src/index.ts",
+              "symbol": "helper"
+            }
+          }
+        ]
+      },
+      "mod-app": {
+        "version": 1,
+        "module": "mod-app",
+        "entities": [
+          {
+            "id": "cls-task",
+            "kind": "class",
+            "name": "Task",
+            "location": {
+              "file": "services/api/app/models.py",
+              "symbol": "Task"
+            },
+            "responsibility": "A task.",
+            "fields": [
+              {
+                "name": "name",
+                "type": "str"
+              }
+            ]
+          },
+          {
+            "id": "cls-task-service",
+            "kind": "class",
+            "name": "TaskService",
+            "location": {
+              "file": "services/api/app/service.py",
+              "symbol": "TaskService"
+            },
+            "methods": [
+              {
+                "name": "get",
+                "signature": "get() -> Task"
+              }
+            ],
+            "relations": [
+              {
+                "type": "references",
+                "target": "cls-task"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "report": {
+    "roots": [
+      "apps",
+      "packages",
+      "services"
+    ],
+    "languages": [
+      "python",
+      "typescript"
+    ],
+    "systems": [],
+    "modules": [
+      {
+        "id": "mod-api",
+        "path": "apps/web/src/api",
+        "files": 1,
+        "entities": 1
+      },
+      {
+        "id": "mod-components",
+        "path": "apps/web/src/components",
+        "files": 1,
+        "entities": 1
+      },
+      {
+        "id": "mod-src",
+        "path": "packages/lib/src",
+        "files": 1,
+        "entities": 1
+      },
+      {
+        "id": "mod-app",
+        "path": "services/api/app",
+        "files": 3,
+        "entities": 2
+      }
+    ],
+    "entity_count": 5,
+    "skipped_files": [],
+    "skipped_dirs": [
+      "services/api/tests"
+    ],
+    "deps": {
+      "mod-api": [
+        "mod-components"
+      ]
+    },
+    "notes": [
+      "实体关系: 解析 1 条；0 个同名歧义/未找到目标已跳过",
+      "近似适配器（声明级符号 + 字段/方法/关系近似）: typescript；复杂语法可能遗漏",
+      "模块粒度启发式：Python 按 __init__.py 包、其他语言按源文件目录；可用 jin.yaml scan.roots 调整",
+      "responsibility 为空的条目需要审校补全"
+    ]
+  }
+}
