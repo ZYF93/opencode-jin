@@ -8,6 +8,7 @@
   </a>
 </p>
 <p align="center">开源的 AI Coding Agent。</p>
+<p align="center"><strong>本分支加入 Jin：面向架构的开发方式与一键审批。</strong></p>
 <p align="center">
   <a href="https://opencode.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/@opencode/cli"><img alt="npm" src="https://img.shields.io/npm/v/@opencode/cli?style=flat-square" /></a>
@@ -39,9 +40,132 @@
   <a href="README.vi.md">Tiếng Việt</a>
 </p>
 
-[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+---
+
+> [!IMPORTANT]
+> **本仓库是 OpenCode 的 Jin 分支。** Jin 在 OpenCode Desktop 中加入架构图、
+> 结构化提案和一键审批门。下方安装命令安装的是上游 OpenCode，不是 Jin。
+> 运行 Jin 请见 [本地运行 Jin](#本地运行-jin)，完整说明见
+> [JIN.zh.md](./JIN.zh.md)。
+
+## Jin
+
+**面向架构的 AI 开发方式，运行在 OpenCode Desktop 中。**
+
+Jin 让 Coding Agent 在明确的架构约束下工作。结构性改动不再直接改代码，而是
+变成可审阅的提案；Agent 与 `arch/` 之间有一道由服务器强制执行的审批门。审批
+只需一次点击：服务器签名并应用目标架构，然后 Agent 自动继续。
+
+<p align="center">
+  <img src="docs/jin/approval-dark.png" alt="OpenCode Desktop 中的 Jin 审批面板" width="860">
+</p>
+<p align="center"><sub>Agent 校验提案后，Jin 自动打开；一次点击即可应用或拒绝，并让 Agent 继续。</sub></p>
+
+### 为什么不一样
+
+- **架构进入开发闭环。** Agent 针对真实的 L0/L1 模型创建和修订提案，并用代码
+  校验目标。
+- **审批只有一个动作。** `批准并应用` 会签名、应用目标并恢复 Agent，不存在
+  "先批准再应用"的第二步。
+- **拒绝也是有用的反馈。** 拒绝可以带审阅备注回到 Agent，Agent 会自动继续并
+  修订，而不是默默往下做。
+- **审批门在服务器。** 桌面端只是审阅界面，不是安全边界。决策由 HMAC 签名，
+  并绑定到用户审阅时的目标哈希。
+
+### 看到架构，而不只是代码 diff
+
+<p align="center">
+  <img src="docs/jin/graph.png" alt="Jin 架构图：直接依赖边与实体检查器" width="1000">
+</p>
+<p align="center"><sub>架构图夹具：提案差异、直接依赖边与实体检查器。</sub></p>
+
+架构图展示系统、分层、模块、实体、字段、方法和直接依赖边。悬浮或选中节点时只
+保留直接关系，其余部分淡出。跨层模块依赖是蓝色虚线，实体依赖是青色实线；提案
+中的新增、删除、变更、移动节点分别用绿、红、琥珀、紫标注。选中实体会在右侧栏
+打开完整检查器。
+
+### 核心能力
+
+| 能力 | 说明 |
+| --- | --- |
+| **实时架构图** | 系统、分层、模块、实体、字段、方法、直接依赖边、聚焦模式和右侧检查器。 |
+| **结构化提案** | 目标快照按版本保存在 `arch/proposals/<REQ>/`，包含理由、验收标准、结构差异和历史。 |
+| **一键审批** | 签名的 `resolve` 会应用目标并向会话发送合成继续消息；拒绝同样自动继续。 |
+| **自动打开审阅** | `jin_validate` 通过后发出 `approval` 事件，桌面端自动切到审阅模式并选中提案。 |
+| **漂移检测** | 应用后把声明的位置和符号与真实代码对比，报告错误和警告。 |
+| **双语界面** | 简体中文 / English，明暗主题，窄窗口自适应。 |
+| **Agent 工具** | `jin_arch_read`、`jin_status`、`jin_proposal_create`、`jin_proposal_revise`、`jin_proposal_read`、`jin_validate`，以及手动兜底 `jin_apply`。 |
+
+### 审批流程
+
+1. Agent 创建提案，只编辑 `versions/vN/target-L0.yaml` 和
+   `versions/vN/target-L1/*.yaml`。
+2. `jin_validate` 用真实代码校验目标。有错误回到 Agent；通过后提案进入
+   `in_review`。
+3. 桌面端自动打开 Jin 并选中待审批提案。
+4. 用户点击一次 **批准并应用** 或 **拒绝**。服务器签名决策、绑定审阅时的目标
+   哈希，并发送合成继续消息。
+5. 批准会把目标写入 `arch/`；拒绝只保存决策和备注。两种结果都会让 Agent 自动
+   继续。
+
+Agent 不能批准。手动修改 `meta.yaml` 或 `decisions/*.yaml` 不会生效；服务器在
+应用前会验证签名和目标哈希。
+
+### 本地运行 Jin
+
+```bash
+git clone git@github.com:ZYF93/opencode-jin.git
+cd opencode-jin
+bun install
+bun run dev:desktop
+```
+
+然后：
+
+1. 在桌面端打开或创建一个项目。
+2. 打开侧边栏的 **架构** 面板（或运行 `Open Jin architecture` 命令）。
+3. 如果项目没有 `arch/L0.yaml`，点击 **扫描当前代码**。Jin 会用与服务器相同的
+   扫描器生成草稿，不会覆盖已有架构。
+4. 让 Agent 做结构性改动，并要求它创建 Jin 提案、只编辑目标文件并校验。
+5. 查看目标、差异和漂移提示。批准或拒绝一次，Agent 会自动继续。
+
+> [!TIP]
+> 正常的 Agent 指令是"校验，然后等待用户决策"。`jin_validate` 就是交接点。
+
+### 支持的语言
+
+| 语言 | 提取内容 |
+| --- | --- |
+| TypeScript / JavaScript | 导出声明的类、类型、函数、组件/页面/Store 实体、字段、方法和使用关系。 |
+| Python | 顶层类和函数、方法签名、字段、点号导入。 |
+| Java | 顶层类型。 |
+| Kotlin | 顶层类型和函数。 |
+
+适配器是声明级的，故意保持近似，不是编译器。缺少位置或符号是校验错误，未登记
+的公开符号是警告。
+
+### 包与文档
+
+| 路径 | 作用 |
+| --- | --- |
+| [`packages/jin-core`](./packages/jin-core) | L0/L1 模型、YAML 读写、扫描器、校验、差异、漂移、提案生命周期、应用门。 |
+| [`packages/jin-opencode`](./packages/jin-opencode) | OpenCode 服务器插件、RPC、Agent 工具、审批事件、合成继续消息。 |
+| [`packages/gui-extensions/src/jin`](./packages/gui-extensions/src/jin) | 桌面面板、架构图、差异审阅、检查器、国际化。 |
+| [`JIN.zh.md`](./JIN.zh.md) | 完整中文使用指南：模型、审批契约、安全、开发、排错。 |
+| [`JIN.md`](./JIN.md) | Full English user guide. |
+
+Jin 不内置模型凭据，也不带 Python sidecar。模型由用户通过 OpenCode 提供。审批
+密钥可以用 `JIN_APPROVAL_SECRET`、`JIN_APPROVAL_KEY_FILE` 设置，或使用自动生成
+的 `~/.local/share/opencode/jin/approval.key`（权限 `0600`）。
 
 ---
+
+## 上游 OpenCode
+
+[![OpenCode Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://opencode.ai)
+
+以下内容是上游 OpenCode 的 README。安装命令安装的是上游 OpenCode，不是 Jin。
+本分支请使用上面的 Jin 快速开始。
 
 ### 安装
 

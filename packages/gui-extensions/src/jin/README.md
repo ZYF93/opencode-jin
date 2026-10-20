@@ -1,6 +1,8 @@
 # Jin GUI extension
 
-Jin's surface inside the OpenCode desktop and web app.
+Jin's surface inside the OpenCode desktop and web app. See the
+[full Jin guide](../../../../JIN.md) for the user workflow, architecture model,
+approval contract, and security notes.
 
 The extension contributes a pinned `Architecture` side-panel tab and an
 `Open Jin architecture` command. It reads the server plugin's `jin` RPC:
